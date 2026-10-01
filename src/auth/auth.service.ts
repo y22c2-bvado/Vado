@@ -6,42 +6,48 @@ import * as bcrypt from 'bcryptjs';
 
 @Injectable()
 export class AuthService {
-    constructor(
-        private jwtService: JwtService,
-        private prisma: PrismaService
-    ) { }
+  constructor(
+    private jwtService: JwtService,
+    private prisma: PrismaService,
+  ) {}
 
-    async validateUser(user: LoginDto) {
+  async validateUser(user: LoginDto) {
+    const foundUser = await this.prisma.user.findUnique({
+      where: {
+        email: user.email,
+      },
+    });
 
-        const foundUser = await this.prisma.user.findUnique({
-
-            where: {
-
-                email: user.email
-
-            }
-
-        });
-
-        if (!foundUser) return null;
-
-        const isPasswordValid = await bcrypt.compare(user.password, foundUser.password);
-
-        if (isPasswordValid) {
-
-            return this.jwtService.sign({
-
-                id: foundUser.id,
-                email: foundUser.email, 
-                role: foundUser.roles,
-
-            });
-
-        } else {
-
-            throw new UnauthorizedException('Credenciales inválidas');
-        }
+    // 1. Si no existe el usuario
+    if (!foundUser) {
+      throw new UnauthorizedException('Credenciales inválidas');
     }
 
+    // 2. Verificar si la contraseña coincide directamente (texto plano)
+    // O si coincide mediante Hash de Bcrypt
+    let isPasswordValid = user.password === foundUser.password;
 
+    if (!isPasswordValid && foundUser.password.startsWith('$2')) {
+      try {
+        isPasswordValid = await bcrypt.compare(user.password, foundUser.password);
+      } catch (e) {
+        isPasswordValid = false;
+      }
+    }
+
+    // 3. Generar Token si la contraseña es correcta
+    if (isPasswordValid) {
+      const payload = {
+        id: foundUser.id,
+        email: foundUser.email,
+        roles: foundUser.roles,
+      };
+
+      return {
+        access_token: this.jwtService.sign(payload),
+      };
+    } else {
+      throw new UnauthorizedException('Credenciales inválidas');
+    }
+  }
 }

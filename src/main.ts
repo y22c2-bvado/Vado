@@ -9,7 +9,16 @@ async function bootstrap() {
    .setTitle('My API')
    .setDescription('My API description')
    .setVersion('1.0')
-   .addTag('my-api')
+   .addTag('api')
+   .addBearerAuth({
+     type: 'http',
+     scheme: 'bearer',
+     bearerFormat: 'JWT',
+     in: 'header',
+     name:'Authorizatin',
+     description: 'Enter your bearer token',
+   })
+   .addSecurityRequirements('bearer')
    .build();
 
   const document = SwaggerModule.createDocument(app, config);
@@ -17,4 +26,4 @@ async function bootstrap() {
   SwaggerModule.setup('api', app, document);
   await app.listen(process.env.PORT ?? 3000);
 }
-void bootstrap();
+bootstrap();
